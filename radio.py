@@ -7,34 +7,27 @@ from flask import Flask, Response
 
 app = Flask(__name__)
 
-# আপনার নির্দিষ্ট ইউটিউব ভিডিও লিংক
+# সরাসরি ইউটিউব ভিডিও লিংক
 VIDEO_URL = "https://youtu.be/yKbFhvKbXxw"
 
 clients = []
 clients_lock = threading.Lock()
 
 def master_broadcaster():
-    """একই ভিডিও বারবার লুপ আকারে ব্যাকগ্রাউন্ডে স্ট্রিম করতে থাকবে"""
     while True:
         try:
-            print(f"Fetching audio stream for video...")
-            cmd = [
-                'yt-dlp', 
-                '--cookies', 'cookies.txt', 
-                '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                '-g', '-f', 'bestaudio', 
-                VIDEO_URL
-            ]
-            stream_output = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            print("Getting direct stream URL...")
+            cmd = ['yt-dlp', '--no-warnings', '-g', '-f', 'bestaudio', VIDEO_URL]
+            result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             
-            if stream_output.returncode != 0:
-                print("Error fetching video stream. Retrying in 5 seconds...")
+            if result.returncode != 0:
+                print("Failed to get URL, retrying in 5s...")
                 time.sleep(5)
                 continue
+                
+            stream_url = result.stdout.strip().split('\n')[0]
+            print("Stream URL obtained, starting ffmpeg...")
             
-            stream_url = stream_output.stdout.strip().split('\n')[0]
-            
-            # FFmpeg দিয়ে অডিও স্ট্রিম লুপ করা
             ffmpeg_cmd = [
                 'ffmpeg', '-re', '-i', stream_url, '-vn', '-f', 'mp3', '-ab', '128k', 'pipe:1'
             ]
@@ -43,7 +36,7 @@ def master_broadcaster():
             while True:
                 chunk = process.stdout.read(4096)
                 if not chunk:
-                    break  # গান শেষ হলে আবার লুপের শুরুতে গিয়ে রি-প্লে হবে
+                    break
                 
                 with clients_lock:
                     for q in clients:
@@ -54,15 +47,14 @@ def master_broadcaster():
                             
             process.terminate()
         except Exception as e:
-            print(f"Streaming Error: {e}")
+            print(f"Error: {e}")
             time.sleep(3)
 
-# ব্যাকগ্রাউন্ড মাস্টার ব্রডকাস্টার চালু করা হলো
 threading.Thread(target=master_broadcaster, daemon=True).start()
 
 @app.route('/stream')
 def stream():
-    q = queue.Queue(maxsize=200)
+    q = queue.Queue(maxsize=100)
     with clients_lock:
         clients.append(q)
         
@@ -80,7 +72,7 @@ def stream():
 
 @app.route('/')
 def home():
-    return "Radio Server is Live and Streaming Single Video 24/7!"
+    return "Radio is Running!"
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
