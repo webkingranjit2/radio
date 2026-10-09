@@ -40,8 +40,8 @@ def master_broadcaster():
             
         for v_url in video_urls:
             try:
-                # কুকি ছাড়া সরাসরি yt-dlp দিয়ে স্ট্রিম ফেচ করার কমান্ড
-                cmd = ['yt-dlp', '--extractor-args', 'youtube:player_client=android', '-g', '-f', 'bestaudio', v_url]
+                # yt-dlp ব্যবহার করে পসিবল বাইপাস মেথড
+                cmd = ['yt-dlp', '--no-check-certificates', '--geo-bypass', '-g', '-f', 'bestaudio', v_url]
                 stream_url = subprocess.check_output(cmd).decode('utf-8').strip().split('\n')[0]
                 
                 ffmpeg_cmd = [
