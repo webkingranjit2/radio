@@ -7,7 +7,6 @@ from flask import Flask, Response
 
 app = Flask(__name__)
 
-# সরাসরি ইউটিউব ভিডিও লিংক
 VIDEO_URL = "https://youtu.be/yKbFhvKbXxw"
 
 clients = []
@@ -16,17 +15,25 @@ clients_lock = threading.Lock()
 def master_broadcaster():
     while True:
         try:
-            print("Getting direct stream URL...")
-            cmd = ['yt-dlp', '--no-warnings', '-g', '-f', 'bestaudio', VIDEO_URL]
+            print("Fetching direct stream URL with cookies and android client...")
+            cmd = [
+                'yt-dlp', 
+                '--cookies', 'cookies.txt',
+                '--extractor-args', 'youtube:player_client=android',
+                '--no-warnings', 
+                '-g', 
+                '-f', 'bestaudio', 
+                VIDEO_URL
+            ]
             result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             
             if result.returncode != 0:
-                print("Failed to get URL, retrying in 5s...")
+                print(f"Error fetching URL: {result.stderr}")
                 time.sleep(5)
                 continue
                 
             stream_url = result.stdout.strip().split('\n')[0]
-            print("Stream URL obtained, starting ffmpeg...")
+            print("Stream URL obtained successfully, starting ffmpeg...")
             
             ffmpeg_cmd = [
                 'ffmpeg', '-re', '-i', stream_url, '-vn', '-f', 'mp3', '-ab', '128k', 'pipe:1'
