@@ -32,15 +32,17 @@ def get_shuffled_playlist():
         return []
 
 def master_broadcaster():
+    # সার্ভার চালুর সাথে সাথে একটি ডামি বাইট বা লুপ বজায় রাখা
     while True:
         video_urls = get_shuffled_playlist()
         if not video_urls:
+            print("Playlist empty or API limit reached. Retrying in 10s...")
             time.sleep(10)
             continue
             
         for v_url in video_urls:
             try:
-                # yt-dlp দিয়ে স্ট্রিম লিংক ফেচ করা
+                print(f"Fetching audio for: {v_url}")
                 cmd = [
                     'yt-dlp', 
                     '--cookies', 'cookies.txt', 
@@ -52,7 +54,7 @@ def master_broadcaster():
                 
                 if stream_output.returncode != 0:
                     print(f"Skipping restricted/error video: {v_url}")
-                    continue  # কোনো গান ব্লক বা এরর থাকলে সাথে সাথে পরের গানে চলে যাবে
+                    continue
                 
                 stream_url = stream_output.stdout.strip().split('\n')[0]
                 
@@ -75,14 +77,16 @@ def master_broadcaster():
                                 
                 process.terminate()
             except Exception as e:
-                print("Streaming Error:", e)
-                continue # কোনো কারণে সমস্যা হলে লুপ ভেঙে না গিয়ে পরের গানে চলে যাবে
+                print(f"Streaming Error: {e}")
+                time.sleep(2)
+                continue
 
+# ব্যাকগ্রাউন্ড ব্রডকাস্টার চালু করা হলো
 threading.Thread(target=master_broadcaster, daemon=True).start()
 
 @app.route('/stream')
 def stream():
-    q = queue.Queue(maxsize=100)
+    q = queue.Queue(maxsize=200)
     with clients_lock:
         clients.append(q)
         
@@ -97,6 +101,10 @@ def stream():
                     clients.remove(q)
 
     return Response(generate(), mimetype='audio/mpeg')
+
+@app.route('/')
+def home():
+    return "Radio Server is Live and Running!"
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
