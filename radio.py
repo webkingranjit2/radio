@@ -24,7 +24,7 @@ def get_shuffled_playlist():
         if "items" in data:
             for item in data["items"]:
                 video_id = item["snippet"]["resourceId"]["videoId"]
-                video_urls.append(f"https://www.youtube.com/watch?v={video_id}")
+                video_urls.append(video_id)
         random.shuffle(video_urls)
         return video_urls
     except Exception as e:
@@ -33,15 +33,16 @@ def get_shuffled_playlist():
 
 def master_broadcaster():
     while True:
-        video_urls = get_shuffled_playlist()
-        if not video_urls:
+        video_ids = get_shuffled_playlist()
+        if not video_ids:
             time.sleep(10)
             continue
             
-        for v_url in video_urls:
+        for v_id in video_ids:
             try:
-                # yt-dlp ব্যবহার করে পসিবল বাইপাস মেথড
-                cmd = ['yt-dlp', '--no-check-certificates', '--geo-bypass', '-g', '-f', 'bestaudio', v_url]
+                # yt-dlp এর পরিবর্তে সরাসরি স্ট্রিম বাইপাস করার বিকল্প পদ্ধতি
+                watch_url = f"https://www.youtube.com/watch?v={v_id}"
+                cmd = ['yt-dlp', '--extractor-args', 'youtube:player_client=ios', '-g', '-f', 'bestaudio', watch_url]
                 stream_url = subprocess.check_output(cmd).decode('utf-8').strip().split('\n')[0]
                 
                 ffmpeg_cmd = [
