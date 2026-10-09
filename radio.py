@@ -2,66 +2,45 @@ import os
 import time
 import queue
 import threading
-import subprocess
+import requests
 from flask import Flask, Response
 
 app = Flask(__name__)
 
-VIDEO_URL = "https://youtu.be/yKbFhvKbXxw"
+# আপনার দেওয়া ডিরেক্ট এমপি থ্রি লিংক
+MP3_URL = "https://freeweb24.page.gd/mp3/arijit/Bangla_Romantic/01_Thik_Emon_Ebhabe.mp3"
 
 clients = []
 clients_lock = threading.Lock()
 
 def master_broadcaster():
+    """ডিরেক্ট এমপি থ্রি ফাইলটি লুপ আকারে ব্যাকগ্রাউন্ডে স্ট্রিম করতে থাকবে"""
     while True:
         try:
-            print("Fetching direct stream URL with cookies and android client...")
-            cmd = [
-                'yt-dlp', 
-                '--cookies', 'cookies.txt',
-                '--extractor-args', 'youtube:player_client=android',
-                '--no-warnings', 
-                '-g', 
-                '-f', 'bestaudio', 
-                VIDEO_URL
-            ]
-            result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            
-            if result.returncode != 0:
-                print(f"Error fetching URL: {result.stderr}")
+            print("Connecting to direct MP3 stream...")
+            response = requests.get(MP3_URL, stream=True)
+            if response.status_code == 200:
+                for chunk in response.iter_content(chunk_size=4096):
+                    if chunk:
+                        with clients_lock:
+                            for q in clients:
+                                try:
+                                    q.put_nowait(chunk)
+                                except queue.Full:
+                                    pass
+            else:
+                print(f"Failed to fetch MP3. Status code: {response.status_code}")
                 time.sleep(5)
-                continue
-                
-            stream_url = result.stdout.strip().split('\n')[0]
-            print("Stream URL obtained successfully, starting ffmpeg...")
-            
-            ffmpeg_cmd = [
-                'ffmpeg', '-re', '-i', stream_url, '-vn', '-f', 'mp3', '-ab', '128k', 'pipe:1'
-            ]
-            process = subprocess.Popen(ffmpeg_cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-            
-            while True:
-                chunk = process.stdout.read(4096)
-                if not chunk:
-                    break
-                
-                with clients_lock:
-                    for q in clients:
-                        try:
-                            q.put_nowait(chunk)
-                        except queue.Full:
-                            pass
-                            
-            process.terminate()
         except Exception as e:
-            print(f"Error: {e}")
-            time.sleep(3)
+            print(f"Broadcaster Error: {e}")
+            time.sleep(5)
 
+# ব্যাকগ্রাউন্ড ব্রডকাস্টার চালু করা হলো
 threading.Thread(target=master_broadcaster, daemon=True).start()
 
 @app.route('/stream')
 def stream():
-    q = queue.Queue(maxsize=100)
+    q = queue.Queue(maxsize=200)
     with clients_lock:
         clients.append(q)
         
@@ -79,7 +58,7 @@ def stream():
 
 @app.route('/')
 def home():
-    return "Radio is Running!"
+    return "Direct MP3 Radio Server is Live and Running!"
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
