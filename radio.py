@@ -40,7 +40,7 @@ def master_broadcaster():
             
         for v_url in video_urls:
             try:
-                # কুকি ফাইলের সাথে ইউজার-এজেন্ট এবং ফোর-ও-থ্রি বাইপাস কমান্ড
+                # yt-dlp দিয়ে স্ট্রিম লিংক ফেচ করা
                 cmd = [
                     'yt-dlp', 
                     '--cookies', 'cookies.txt', 
@@ -48,7 +48,13 @@ def master_broadcaster():
                     '-g', '-f', 'bestaudio', 
                     v_url
                 ]
-                stream_url = subprocess.check_output(cmd).decode('utf-8').strip().split('\n')[0]
+                stream_output = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                
+                if stream_output.returncode != 0:
+                    print(f"Skipping restricted/error video: {v_url}")
+                    continue  # কোনো গান ব্লক বা এরর থাকলে সাথে সাথে পরের গানে চলে যাবে
+                
+                stream_url = stream_output.stdout.strip().split('\n')[0]
                 
                 ffmpeg_cmd = [
                     'ffmpeg', '-i', stream_url, '-vn', '-f', 'mp3', '-ab', '128k', 'pipe:1'
@@ -70,7 +76,7 @@ def master_broadcaster():
                 process.terminate()
             except Exception as e:
                 print("Streaming Error:", e)
-                time.sleep(3)
+                continue # কোনো কারণে সমস্যা হলে লুপ ভেঙে না গিয়ে পরের গানে চলে যাবে
 
 threading.Thread(target=master_broadcaster, daemon=True).start()
 
