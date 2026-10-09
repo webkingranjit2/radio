@@ -40,8 +40,14 @@ def master_broadcaster():
             
         for v_url in video_urls:
             try:
-                # আপনার দেওয়া cookies.txt ফাইল ব্যবহার করে yt-dlp স্ট্রিম ফেচ করবে
-                cmd = ['yt-dlp', '--cookies', 'cookies.txt', '-g', '-f', 'bestaudio', v_url]
+                # কুকি ফাইলের সাথে ইউজার-এজেন্ট এবং ফোর-ও-থ্রি বাইপাস কমান্ড
+                cmd = [
+                    'yt-dlp', 
+                    '--cookies', 'cookies.txt', 
+                    '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    '-g', '-f', 'bestaudio', 
+                    v_url
+                ]
                 stream_url = subprocess.check_output(cmd).decode('utf-8').strip().split('\n')[0]
                 
                 ffmpeg_cmd = [
